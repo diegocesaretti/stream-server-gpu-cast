@@ -54,23 +54,23 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .work/stream-server/vcpkg_installed
-          key: windows-vcpkg-${{ hashFiles('.work/stream-server/vcpkg.json', '.work/stream-server/vcpkg-overlays/**', '.work/stream-server/triplets/**') }}
+          key: windows-vcpkg-v2-${{ hashFiles('.work/stream-server/vcpkg.json', '.work/stream-server/vcpkg-overlays/**', '.work/stream-server/triplets/**') }}
           restore-keys: |
-            windows-vcpkg-
+            windows-vcpkg-v2-
 
       - name: Setup vcpkg and libtorrent
-        if: steps.vcpkg-cache.outputs.cache-hit != 'true'
+        id: vcpkg
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgGitCommitId: '84bab45d415d22042bd0b9081aea57f362da3f35'
-          vcpkgDirectory: '${{ github.workspace }}\.work\stream-server\vcpkg'
-          vcpkgJsonGlob: '${{ github.workspace }}\.work\stream-server\vcpkg.json'
+          vcpkgDirectory: '${{ github.workspace }}/.work/stream-server/vcpkg'
+          vcpkgJsonGlob: '.work/stream-server/vcpkg.json'
           runVcpkgInstall: true
         env:
-          VCPKG_INSTALLED_DIR: ${{ github.workspace }}\.work\stream-server\vcpkg_installed
+          VCPKG_INSTALLED_DIR: ${{ github.workspace }}/.work/stream-server/vcpkg_installed
           VCPKG_DEFAULT_TRIPLET: x64-windows-static-release
-          VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}\.work\stream-server\triplets
-          VCPKG_OVERLAY_PORTS: ${{ github.workspace }}\.work\stream-server\vcpkg-overlays
+          VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/.work/stream-server/triplets
+          VCPKG_OVERLAY_PORTS: ${{ github.workspace }}/.work/stream-server/vcpkg-overlays
 
       - name: Build release binary
         id: build
@@ -78,10 +78,10 @@ jobs:
         shell: pwsh
         working-directory: .work/stream-server
         env:
-          VCPKG_ROOT: ${{ github.workspace }}\.work\stream-server\vcpkg
-          VCPKG_INSTALLED_DIR: ${{ github.workspace }}\.work\stream-server\vcpkg_installed
+          VCPKG_ROOT: ${{ github.workspace }}/.work/stream-server/vcpkg
+          VCPKG_INSTALLED_DIR: ${{ github.workspace }}/.work/stream-server/vcpkg_installed
           VCPKGRS_TRIPLET: x64-windows-static-release
-          PKG_CONFIG_PATH: ${{ github.workspace }}\.work\stream-server\vcpkg_installed\x64-windows-static-release\lib\pkgconfig
+          PKG_CONFIG_PATH: ${{ github.workspace }}/.work/stream-server/vcpkg_installed/x64-windows-static-release/lib/pkgconfig
         run: |
           cargo build --quiet --message-format short --release -p server --target x86_64-pc-windows-msvc --no-default-features --features libtorrent 2>&1 | Tee-Object cargo-build.log
           $BuildExitCode = $LASTEXITCODE
@@ -118,11 +118,11 @@ jobs:
           key: windows-rust-libtorrent-${{ hashFiles('.work/stream-server/Cargo.lock') }}
 
       - name: Save vcpkg installed cache
-        if: always() && steps.vcpkg-cache.outputs.cache-hit != 'true'
+        if: always() && steps.vcpkg.outcome == 'success' && steps.vcpkg-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: .work/stream-server/vcpkg_installed
-          key: windows-vcpkg-${{ hashFiles('.work/stream-server/vcpkg.json', '.work/stream-server/vcpkg-overlays/**', '.work/stream-server/triplets/**') }}
+          key: windows-vcpkg-v2-${{ hashFiles('.work/stream-server/vcpkg.json', '.work/stream-server/vcpkg-overlays/**', '.work/stream-server/triplets/**') }}
 
       - name: Fail workflow when compilation failed
         if: steps.build.outcome == 'failure'
