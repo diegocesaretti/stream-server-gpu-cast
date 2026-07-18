@@ -9,6 +9,7 @@ $UpstreamCommit = (Get-Content (Join-Path $RepoRoot "UPSTREAM_COMMIT") -Raw).Tri
 $OverridePath = Join-Path $RepoRoot "overrides/server/src/routes/casting.rs"
 $TargetPath = Join-Path $DestinationPath "server/src/routes/casting.rs"
 $ServerManifestPath = Join-Path $DestinationPath "server/Cargo.toml"
+$EngineSourcePath = Join-Path $DestinationPath "enginefs/src/lib.rs"
 
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     throw "Git is required but was not found in PATH."
@@ -44,6 +45,17 @@ if (-not $ServerManifest.Contains($OriginalEngineDependency)) {
 }
 $ServerManifest = $ServerManifest.Replace($OriginalEngineDependency, $PatchedEngineDependency)
 Set-Content -Path $ServerManifestPath -Value $ServerManifest -Encoding utf8
+
+# Upstream's librqbit-only constructor refers to EngineCacheConfig without an
+# import that exists in this feature combination. Fully qualify the type.
+$EngineSource = Get-Content $EngineSourcePath -Raw
+$OriginalCacheParameter = '_cache_config: EngineCacheConfig,'
+$PatchedCacheParameter = '_cache_config: crate::backend::priorities::EngineCacheConfig,'
+if (-not $EngineSource.Contains($OriginalCacheParameter)) {
+    throw "Could not find the expected librqbit EngineCacheConfig parameter."
+}
+$EngineSource = $EngineSource.Replace($OriginalCacheParameter, $PatchedCacheParameter)
+Set-Content -Path $EngineSourcePath -Value $EngineSource -Encoding utf8
 
 # NVENC on Turing and other generations may reject very small synthetic frames.
 # Keep the runtime self-test representative of the actual Chromecast workload.
