@@ -8,6 +8,7 @@ $DestinationPath = Join-Path $RepoRoot $Destination
 $UpstreamCommit = (Get-Content (Join-Path $RepoRoot "UPSTREAM_COMMIT") -Raw).Trim()
 $OverridePath = Join-Path $RepoRoot "overrides/server/src/routes/casting.rs"
 $TargetPath = Join-Path $DestinationPath "server/src/routes/casting.rs"
+$ServerManifestPath = Join-Path $DestinationPath "server/Cargo.toml"
 
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     throw "Git is required but was not found in PATH."
@@ -32,6 +33,17 @@ if ($LASTEXITCODE -ne 0) {
 
 New-Item -ItemType Directory -Path (Split-Path -Parent $TargetPath) -Force | Out-Null
 Copy-Item $OverridePath $TargetPath -Force
+
+# The upstream server depends on enginefs without disabling its default feature.
+# That silently enables libtorrent even when the server is built with librqbit.
+$ServerManifest = Get-Content $ServerManifestPath -Raw
+$OriginalEngineDependency = 'enginefs = { path = "../enginefs" }'
+$PatchedEngineDependency = 'enginefs = { path = "../enginefs", default-features = false }'
+if (-not $ServerManifest.Contains($OriginalEngineDependency)) {
+    throw "Could not find the expected enginefs dependency in server/Cargo.toml."
+}
+$ServerManifest = $ServerManifest.Replace($OriginalEngineDependency, $PatchedEngineDependency)
+Set-Content -Path $ServerManifestPath -Value $ServerManifest -Encoding utf8
 
 # NVENC on Turing and other generations may reject very small synthetic frames.
 # Keep the runtime self-test representative of the actual Chromecast workload.
