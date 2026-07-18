@@ -1,0 +1,128 @@
+name: Build Windows GPU Cast
+
+on:
+  pull_request:
+    branches: [ci-build-base]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: never
+  CARGO_NET_RETRY: 10
+  CARGO_HTTP_MULTIPLEXING: false
+  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+
+      - name: Prepare patched upstream source
+        shell: pwsh
+        run: ./scripts/prepare-source.ps1
+
+      - name: Export GitHub Actions cache environment for vcpkg
+        uses: actions/github-script@v9
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL);
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN);
+
+      - name: Restore Cargo and target cache
+        id: cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            .work/stream-server/target
+          key: windows-rust-libtorrent-${{ hashFiles('.work/stream-server/Cargo.lock') }}
+          restore-keys: |
+            windows-rust-libtorrent-
+            windows-rust-
+
+      - name: Restore vcpkg installed cache
+        id: vcpkg-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .work/stream-server/vcpkg_installed
+          key: windows-vcpkg-v2-${{ hashFiles('.work/stream-server/vcpkg.json', '.work/stream-server/vcpkg-overlays/**', '.work/stream-server/triplets/**') }}
+          restore-keys: |
+            windows-vcpkg-v2-
+
+      - name: Setup vcpkg and libtorrent
+        id: vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: '84bab45d415d22042bd0b9081aea57f362da3f35'
+          vcpkgDirectory: '${{ github.workspace }}/.work/stream-server/vcpkg'
+          vcpkgJsonGlob: '.work/stream-server/vcpkg.json'
+          runVcpkgInstall: true
+        env:
+          VCPKG_INSTALLED_DIR: ${{ github.workspace }}/.work/stream-server/vcpkg_installed
+          VCPKG_DEFAULT_TRIPLET: x64-windows-static-release
+          VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/.work/stream-server/triplets
+          VCPKG_OVERLAY_PORTS: ${{ github.workspace }}/.work/stream-server/vcpkg-overlays
+
+      - name: Build release binary
+        id: build
+        continue-on-error: true
+        shell: pwsh
+        working-directory: .work/stream-server
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}/.work/stream-server/vcpkg
+          VCPKG_INSTALLED_DIR: ${{ github.workspace }}/.work/stream-server/vcpkg_installed
+          VCPKGRS_TRIPLET: x64-windows-static-release
+          PKG_CONFIG_PATH: ${{ github.workspace }}/.work/stream-server/vcpkg_installed/x64-windows-static-release/lib/pkgconfig
+        run: |
+          cargo build --quiet --message-format short --release -p server --target x86_64-pc-windows-msvc --no-default-features --features libtorrent 2>&1 | Tee-Object cargo-build.log
+          $BuildExitCode = $LASTEXITCODE
+          if ($BuildExitCode -ne 0) {
+            Write-Host "=== Rust compiler diagnostics ==="
+            Get-Content cargo-build.log
+            exit $BuildExitCode
+          }
+
+      - name: Upload compiler log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cargo-build-log
+          path: .work/stream-server/cargo-build.log
+          if-no-files-found: ignore
+
+      - name: Upload Windows binary
+        if: steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: stream-server-gpu-cast-windows-amd64
+          path: .work/stream-server/target/x86_64-pc-windows-msvc/release/server.exe
+          if-no-files-found: error
+
+      - name: Save Cargo and target cache
+        if: always() && steps.cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            .work/stream-server/target
+          key: windows-rust-libtorrent-${{ hashFiles('.work/stream-server/Cargo.lock') }}
+
+      - name: Save vcpkg installed cache
+        if: always() && steps.vcpkg.outcome == 'success' && steps.vcpkg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .work/stream-server/vcpkg_installed
+          key: windows-vcpkg-v2-${{ hashFiles('.work/stream-server/vcpkg.json', '.work/stream-server/vcpkg-overlays/**', '.work/stream-server/triplets/**') }}
+
+      - name: Fail workflow when compilation failed
+        if: steps.build.outcome == 'failure'
+        shell: pwsh
+        run: exit 1
