@@ -30,7 +30,8 @@
 +fn audio_language_rank(language: &str, preferences: &[String]) -> Option<usize> {
 +    let normalized = normalize_audio_language(language);
 +    preferences.iter().position(|preferred| {
-+        normalized == *preferred
++        let preferred = preferred.as_str();
++        normalized == preferred
 +            || normalized
 +                .strip_prefix(preferred)
 +                .is_some_and(|suffix| suffix.starts_with('-'))
@@ -60,7 +61,7 @@
  #[derive(Clone)]
  pub struct HlsEngine;
  
-@@ -36,17 +89,26 @@
+@@ -36,17 +90,26 @@
              .filter(|s| s.codec_type == "audio")
              .collect();
  
