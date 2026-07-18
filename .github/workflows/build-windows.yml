@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  CARGO_TERM_COLOR: always
+  CARGO_TERM_COLOR: never
   CARGO_NET_RETRY: 10
   CARGO_HTTP_MULTIPLEXING: false
 
@@ -29,12 +29,27 @@ jobs:
         run: ./scripts/prepare-source.ps1
 
       - name: Check server crate
+        shell: pwsh
         working-directory: .work/stream-server
-        run: cargo check -p server --target x86_64-pc-windows-msvc --no-default-features --features librqbit
+        run: |
+          cargo check --quiet --message-format short -p server --target x86_64-pc-windows-msvc --no-default-features --features librqbit 2>&1 | Tee-Object cargo-check.log
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "=== Rust compiler diagnostics ==="
+            Get-Content cargo-check.log
+            exit $LASTEXITCODE
+          }
+
+      - name: Upload compiler log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cargo-check-log
+          path: .work/stream-server/cargo-check.log
+          if-no-files-found: ignore
 
       - name: Build release binary
         working-directory: .work/stream-server
-        run: cargo build --release -p server --target x86_64-pc-windows-msvc --no-default-features --features librqbit
+        run: cargo build --quiet --release -p server --target x86_64-pc-windows-msvc --no-default-features --features librqbit
 
       - name: Upload Windows binary
         uses: actions/upload-artifact@v7
