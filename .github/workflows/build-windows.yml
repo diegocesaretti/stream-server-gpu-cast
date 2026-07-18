@@ -30,11 +30,11 @@ jobs:
 
       - name: Check server crate
         working-directory: .work/stream-server
-        run: cargo check -p server --target x86_64-pc-windows-msvc
+        run: cargo check -p server --target x86_64-pc-windows-msvc --no-default-features --features librqbit
 
       - name: Build release binary
         working-directory: .work/stream-server
-        run: cargo build --release -p server --target x86_64-pc-windows-msvc
+        run: cargo build --release -p server --target x86_64-pc-windows-msvc --no-default-features --features librqbit
 
       - name: Upload Windows binary
         uses: actions/upload-artifact@v7
