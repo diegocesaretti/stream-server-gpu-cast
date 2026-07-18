@@ -47,6 +47,9 @@ Requirements:
 - Rust stable (`rustup` / Cargo)
 - FFmpeg with `h264_nvenc` support
 
+The Windows build deliberately uses the pure-Rust `librqbit` backend, avoiding the vcpkg,
+Boost, and native libtorrent setup required by the upstream default feature set.
+
 Verify the GPU encoder:
 
 ```powershell
