@@ -1,0 +1,44 @@
+name: Build Windows GPU Cast
+
+on:
+  push:
+    branches: [main, "agent/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_RETRY: 10
+  CARGO_HTTP_MULTIPLEXING: false
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+
+      - name: Prepare patched upstream source
+        shell: pwsh
+        run: ./scripts/prepare-source.ps1
+
+      - name: Check server crate
+        working-directory: .work/stream-server
+        run: cargo check -p server --target x86_64-pc-windows-msvc
+
+      - name: Build release binary
+        working-directory: .work/stream-server
+        run: cargo build --release -p server --target x86_64-pc-windows-msvc
+
+      - name: Upload Windows binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: stream-server-gpu-cast-windows-amd64
+          path: .work/stream-server/target/x86_64-pc-windows-msvc/release/server.exe
+          if-no-files-found: error
