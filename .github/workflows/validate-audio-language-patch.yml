@@ -1,0 +1,59 @@
+name: Validate audio-language patch
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out compatibility repository
+        uses: actions/checkout@v4
+
+      - name: Check out upstream stream-server
+        uses: actions/checkout@v4
+        with:
+          repository: perpetus/stream-server
+          path: upstream
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install libtorrent build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libboost-dev \
+            libclang-dev \
+            libssl-dev \
+            libtorrent-rasterbar-dev \
+            pkg-config
+
+      - name: Apply deterministic audio-language changes
+        run: python3 apply_audio_language_patch.py upstream
+
+      - name: Verify idempotence
+        run: python3 apply_audio_language_patch.py upstream
+
+      - name: Check enginefs HLS code
+        id: cargo_check
+        working-directory: upstream
+        shell: bash
+        run: |
+          set +e
+          cargo check --quiet --locked -p enginefs > ../cargo-check.log 2>&1
+          status=$?
+          cat ../cargo-check.log
+          exit $status
+
+      - name: Upload Cargo diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-check-diagnostics
+          path: cargo-check.log
+          if-no-files-found: error
