@@ -1,8 +1,6 @@
-diff --git a/enginefs/src/hls.rs b/enginefs/src/hls.rs
-index 5d8026d..0000000 100644
 --- a/enginefs/src/hls.rs
 +++ b/enginefs/src/hls.rs
-@@ -116,6 +116,63 @@ impl ProbeResult {
+@@ -15,6 +15,59 @@
      }
  }
  
@@ -62,7 +60,7 @@ index 5d8026d..0000000 100644
  #[derive(Clone)]
  pub struct HlsEngine;
  
-@@ -409,6 +466,19 @@ impl HlsEngine {
+@@ -36,17 +89,26 @@
              .filter(|s| s.codec_type == "audio")
              .collect();
  
@@ -81,7 +79,6 @@ index 5d8026d..0000000 100644
          // Generate EXT-X-MEDIA entries for each audio track
          let audio_group_id = "audio";
          for (i, audio) in audio_streams.iter().enumerate() {
-@@ -416,11 +486,8 @@ impl HlsEngine {
              let lang = audio.lang.as_deref().unwrap_or("und");
              let fallback_name = format!("Audio {}", i + 1);
              let name = audio.lang.as_deref().unwrap_or(&fallback_name);
