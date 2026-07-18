@@ -31,4 +31,4 @@ jobs:
 
       - name: Check enginefs
         working-directory: upstream
-        run: cargo check --locked -p enginefs
+        run: cargo check --quiet --locked -p enginefs
