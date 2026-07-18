@@ -16,7 +16,7 @@ if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
 
 Push-Location $WorkPath
 try {
-    cargo build --release -p server
+    cargo build --release -p server --no-default-features --features librqbit
     if ($LASTEXITCODE -ne 0) {
         throw "Cargo build failed with exit code $LASTEXITCODE."
     }
