@@ -29,6 +29,6 @@ jobs:
       - name: Verify idempotence
         run: python3 apply_audio_language_patch.py upstream
 
-      - name: Check enginefs
+      - name: Check enginefs HLS code
         working-directory: upstream
-        run: cargo check --quiet --locked -p enginefs
+        run: cargo check --quiet --locked -p enginefs --no-default-features --features librqbit
