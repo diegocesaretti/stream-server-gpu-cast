@@ -10,9 +10,19 @@ $OverridePath = Join-Path $RepoRoot "overrides/server/src/routes/casting.rs"
 $TargetPath = Join-Path $DestinationPath "server/src/routes/casting.rs"
 $ServerManifestPath = Join-Path $DestinationPath "server/Cargo.toml"
 $EngineSourcePath = Join-Path $DestinationPath "enginefs/src/lib.rs"
+$AudioPatchPath = Join-Path $RepoRoot "apply_audio_language_patch.py"
+$GpuPatchPath = Join-Path $RepoRoot "apply_gpu_hls_patch.py"
 
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     throw "Git is required but was not found in PATH."
+}
+
+$Python = Get-Command python -ErrorAction SilentlyContinue
+if (-not $Python) {
+    $Python = Get-Command py -ErrorAction SilentlyContinue
+}
+if (-not $Python) {
+    throw "Python is required to apply the deterministic compatibility patches."
 }
 
 if (Test-Path $DestinationPath) {
@@ -36,7 +46,7 @@ New-Item -ItemType Directory -Path (Split-Path -Parent $TargetPath) -Force | Out
 Copy-Item $OverridePath $TargetPath -Force
 
 # The upstream server depends on enginefs without disabling its default feature.
-# That silently enables libtorrent even when the server is built with librqbit.
+# Keep the feature selection explicit so the requested backend controls the build.
 $ServerManifest = Get-Content $ServerManifestPath -Raw
 $OriginalEngineDependency = 'enginefs = { path = "../enginefs" }'
 $PatchedEngineDependency = 'enginefs = { path = "../enginefs", default-features = false }'
@@ -58,13 +68,33 @@ $EngineSource = $EngineSource.Replace($OriginalCacheParameter, $PatchedCachePara
 Set-Content -Path $EngineSourcePath -Value $EngineSource -Encoding utf8
 
 # NVENC on Turing and other generations may reject very small synthetic frames.
-# Keep the runtime self-test representative of the actual Chromecast workload.
+# Keep the casting self-test representative of the actual Chromecast workload.
 $CastingSource = Get-Content $TargetPath -Raw
 $CastingSource = $CastingSource.Replace(
     "color=c=black:s=64x64:r=1",
     "color=c=black:s=640x360:r=30"
 )
 Set-Content -Path $TargetPath -Value $CastingSource -Encoding utf8
+
+Write-Host "Applying preferred Spanish/Latin audio selection..." -ForegroundColor Cyan
+if ($Python.Name -eq "py.exe" -or $Python.Name -eq "py") {
+    & $Python.Source -3 $AudioPatchPath $DestinationPath
+} else {
+    & $Python.Source $AudioPatchPath $DestinationPath
+}
+if ($LASTEXITCODE -ne 0) {
+    throw "Audio-language patch failed with exit code $LASTEXITCODE."
+}
+
+Write-Host "Applying GTX 1660 NVENC and Chromecast audio/video patches..." -ForegroundColor Cyan
+if ($Python.Name -eq "py.exe" -or $Python.Name -eq "py") {
+    & $Python.Source -3 $GpuPatchPath $DestinationPath
+} else {
+    & $Python.Source $GpuPatchPath $DestinationPath
+}
+if ($LASTEXITCODE -ne 0) {
+    throw "GPU/HLS patch failed with exit code $LASTEXITCODE."
+}
 
 Write-Host "Prepared patched source at $DestinationPath" -ForegroundColor Green
 Write-Host "Upstream commit: $UpstreamCommit"
