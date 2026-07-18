@@ -12,5 +12,9 @@ git -C "$destination" checkout --detach "$upstream_commit"
 cp "$repo_root/overrides/server/src/routes/casting.rs" \
    "$destination/server/src/routes/casting.rs"
 
+# Very small synthetic frames can be below NVENC's supported dimensions.
+sed -i 's/color=c=black:s=64x64:r=1/color=c=black:s=640x360:r=30/g' \
+    "$destination/server/src/routes/casting.rs"
+
 echo "Prepared patched source at $destination"
 echo "Upstream commit: $upstream_commit"
