@@ -18,7 +18,12 @@ function Set-DefaultEnvironmentVariable {
     }
 }
 
-Set-DefaultEnvironmentVariable "CAST_TRANSCODE_ENCODER" "auto"
+# Force NVENC for both direct casting and HLS unless the caller explicitly
+# overrides these values. CPU decode/filter is retained by default for broad
+# codec compatibility; the final video encode still runs on the NVIDIA GPU.
+Set-DefaultEnvironmentVariable "CAST_TRANSCODE_ENCODER" "nvenc"
+Set-DefaultEnvironmentVariable "STREAM_SERVER_TRANSCODE_PROFILE" "hw:nvenc"
+Set-DefaultEnvironmentVariable "STREAM_SERVER_NVDEC" "0"
 Set-DefaultEnvironmentVariable "CAST_TRANSCODE_MAX_WIDTH" "1920"
 Set-DefaultEnvironmentVariable "CAST_TRANSCODE_MAX_HEIGHT" "1080"
 Set-DefaultEnvironmentVariable "CAST_TRANSCODE_MAX_FPS" "30"
