@@ -28,14 +28,25 @@ jobs:
         shell: pwsh
         run: ./scripts/prepare-source.ps1
 
-      - name: Check server crate
+      - name: Cache Cargo and target
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            .work/stream-server/target
+          key: windows-rust-${{ hashFiles('UPSTREAM_COMMIT', 'overrides/**', 'scripts/prepare-source.ps1') }}
+          restore-keys: |
+            windows-rust-
+
+      - name: Build release binary
         shell: pwsh
         working-directory: .work/stream-server
         run: |
-          cargo check --quiet --message-format short -p server --target x86_64-pc-windows-msvc --no-default-features --features librqbit 2>&1 | Tee-Object cargo-check.log
+          cargo build --quiet --message-format short --release -p server --target x86_64-pc-windows-msvc --no-default-features --features librqbit 2>&1 | Tee-Object cargo-build.log
           if ($LASTEXITCODE -ne 0) {
             Write-Host "=== Rust compiler diagnostics ==="
-            Get-Content cargo-check.log
+            Get-Content cargo-build.log
             exit $LASTEXITCODE
           }
 
@@ -43,13 +54,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: cargo-check-log
-          path: .work/stream-server/cargo-check.log
+          name: cargo-build-log
+          path: .work/stream-server/cargo-build.log
           if-no-files-found: ignore
-
-      - name: Build release binary
-        working-directory: .work/stream-server
-        run: cargo build --quiet --release -p server --target x86_64-pc-windows-msvc --no-default-features --features librqbit
 
       - name: Upload Windows binary
         uses: actions/upload-artifact@v7
