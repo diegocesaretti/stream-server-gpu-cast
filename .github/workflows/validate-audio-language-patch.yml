@@ -23,10 +23,11 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Verify and apply patch
-        run: |
-          git -C upstream apply --check "$GITHUB_WORKSPACE/patches/0001-prefer-audio-languages.patch"
-          git -C upstream apply "$GITHUB_WORKSPACE/patches/0001-prefer-audio-languages.patch"
+      - name: Apply deterministic audio-language changes
+        run: python3 apply_audio_language_patch.py upstream
+
+      - name: Verify idempotence
+        run: python3 apply_audio_language_patch.py upstream
 
       - name: Check enginefs
         working-directory: upstream
