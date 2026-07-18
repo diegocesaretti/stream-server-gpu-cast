@@ -1,0 +1,33 @@
+name: Validate audio-language patch
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out compatibility repository
+        uses: actions/checkout@v4
+
+      - name: Check out upstream stream-server
+        uses: actions/checkout@v4
+        with:
+          repository: perpetus/stream-server
+          path: upstream
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Verify and apply patch
+        run: |
+          git -C upstream apply --check "$GITHUB_WORKSPACE/patches/0001-prefer-audio-languages.patch"
+          git -C upstream apply "$GITHUB_WORKSPACE/patches/0001-prefer-audio-languages.patch"
+
+      - name: Check enginefs
+        working-directory: upstream
+        run: cargo check --locked -p enginefs
