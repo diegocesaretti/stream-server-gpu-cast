@@ -10,7 +10,7 @@ Stremio Stream Bridge 0.5.6 appends an ordered language list to forced HLS URLs:
 audioLanguages=lat,esp,spa,es
 ```
 
-The patch in this repository changes the HLS master playlist so exactly one internal audio track is marked as `DEFAULT=YES`.
+The compatibility script in this repository changes the HLS master playlist so exactly one internal audio track is marked as `DEFAULT=YES`.
 
 Selection order:
 
@@ -23,7 +23,7 @@ lat
 → first audio track
 ```
 
-Regional codes such as `es-419` also match the `es` preference. All audio tracks remain exposed in the HLS master playlist; the patch only changes which one compatible players select automatically.
+Regional codes such as `es-419` also match the `es` preference. All audio tracks remain exposed in the HLS master playlist; the change only controls which one compatible players select automatically.
 
 ## Apply to an upstream checkout
 
@@ -33,12 +33,7 @@ From this repository:
 sh apply-patches.sh /path/to/perpetus-stream-server
 ```
 
-Or manually:
-
-```bash
-git -C /path/to/perpetus-stream-server apply \
-  /path/to/stream-server-gpu-cast/patches/0001-prefer-audio-languages.patch
-```
+The wrapper runs `apply_audio_language_patch.py`, which verifies the expected upstream code anchors before changing them. Running it again is safe and reports that support is already present.
 
 Then rebuild the GPU/NVENC binary using the same toolchain and flags used by the current deployment.
 
