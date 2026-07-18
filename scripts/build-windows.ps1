@@ -8,8 +8,26 @@ $RepoRoot = Split-Path -Parent $PSScriptRoot
 $WorkPath = Join-Path $RepoRoot $WorkDirectory
 $OutputPath = Join-Path $RepoRoot $OutputDirectory
 
+# rustup normally adds Cargo to PATH, but an already-open PowerShell session may
+# not see it until it is restarted. Detect the standard install location first.
 if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
-    throw "Rust/Cargo is required. Install it from https://rustup.rs and rerun this script."
+    $CargoBin = Join-Path $env:USERPROFILE ".cargo\bin"
+    $CargoExe = Join-Path $CargoBin "cargo.exe"
+    if (Test-Path $CargoExe) {
+        $env:Path = "$CargoBin;$env:Path"
+    }
+}
+
+if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
+    throw @"
+Rust/Cargo is not installed.
+
+1. Download and run rustup-init.exe from https://www.rust-lang.org/tools/install
+2. Accept the Visual Studio C++ build prerequisites if rustup offers them.
+3. Close and reopen PowerShell.
+4. Confirm with: cargo --version
+5. Run this build script again.
+"@
 }
 
 & (Join-Path $PSScriptRoot "prepare-source.ps1") -Destination $WorkDirectory
