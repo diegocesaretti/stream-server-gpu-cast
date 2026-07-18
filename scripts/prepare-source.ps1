@@ -33,5 +33,14 @@ if ($LASTEXITCODE -ne 0) {
 New-Item -ItemType Directory -Path (Split-Path -Parent $TargetPath) -Force | Out-Null
 Copy-Item $OverridePath $TargetPath -Force
 
+# NVENC on Turing and other generations may reject very small synthetic frames.
+# Keep the runtime self-test representative of the actual Chromecast workload.
+$CastingSource = Get-Content $TargetPath -Raw
+$CastingSource = $CastingSource.Replace(
+    "color=c=black:s=64x64:r=1",
+    "color=c=black:s=640x360:r=30"
+)
+Set-Content -Path $TargetPath -Value $CastingSource -Encoding utf8
+
 Write-Host "Prepared patched source at $DestinationPath" -ForegroundColor Green
 Write-Host "Upstream commit: $UpstreamCommit"
